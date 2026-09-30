@@ -139,34 +139,58 @@ footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;
     </section>
     
     <section id="v-test" hidden>
-      <div id="test-start-screen" class="card">
-        <h2>Thi thử Quốc phòng và An ninh</h2>
+
+      <!-- Màn hình bắt đầu -->
+      <div id="test-start-screen" class="card done">
+    
+        <h2>THI THỬ</h2>
     
         <p>
-          Bài thi gồm <strong>20 câu hỏi</strong>.
-          Thời gian làm bài: <strong>20 phút</strong>.
+          Bài thi gồm <strong>20 câu hỏi</strong>
         </p>
     
         <p>
-          Câu hỏi sẽ được chọn ngẫu nhiên từ học phần hiện tại.
+          Thời gian làm bài:
+          <strong>20 phút</strong>
+        </p>
+    
+        <p class="hint">
+          Câu hỏi được chọn ngẫu nhiên
+          từ học phần hiện tại.
         </p>
     
         <button class="next" id="test-start">
           Bắt đầu thi
         </button>
+    
       </div>
     
+    
+      <!-- Nội dung bài thi -->
       <div id="test-content" hidden>
-        <div class="row" style="justify-content:space-between">
-          <div class="stats" id="test-stats"></div>
+    
+        <div
+          class="row"
+          style="justify-content:space-between"
+        >
+    
+          <div
+            class="stats"
+            id="test-stats"
+          ></div>
+    
         </div>
+    
     
         <div class="bar">
           <i id="test-prog"></i>
         </div>
     
+    
         <div id="test-qbox"></div>
+    
       </div>
+    
     </section>
   </main>
   <footer class="credit"><span>Biên soạn và phát triển bởi <b>Nhân Lập Trình</b></span><span>Ôn thi GDQP-AN · HP1, HP2 &amp; Luật Giáo dục</span></footer>
@@ -747,15 +771,56 @@ const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'
 const norm = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").toLowerCase();
 
 /* tabs */
-const views = {learn:"v-learn", quiz:"v-quiz", wrong:"v-wrong"};
+
+const views = {
+  learn: "v-learn",
+  quiz: "v-quiz",
+  wrong: "v-wrong",
+  test: "v-test"
+};
+
+
 function show(v){
-  for (const k in views){ $(views[k]).hidden = k !== v; $("t-"+k).setAttribute("aria-selected", k===v); }
+
+  for (const k in views){
+
+    $(views[k]).hidden =
+      k !== v;
+
+    $("t-" + k).setAttribute(
+      "aria-selected",
+      k === v
+    );
+
+  }
+
   store.set("gdqp_tab", v);
-  if (v === "wrong") renderWrong();
-  if (v === "quiz" && !quiz) startQuiz();
+
+  if (v === "wrong") {
+    renderWrong();
+  }
+
+  if (v === "quiz" && !quiz) {
+    startQuiz();
+  }
+
+  /*
+   * Thi thử KHÔNG tự bắt đầu.
+   * Chỉ hiện màn hình "Bắt đầu thi".
+   */
+  if (v === "test") {
+    showTestStartScreen();
+  }
+
   window.scrollTo(0,0);
 }
-["learn","quiz","wrong"].forEach(k => $("t-"+k).onclick = () => show(k));
+
+
+["learn","quiz","wrong","test"].forEach(
+  k => {
+    $("t-" + k).onclick = () => show(k);
+  }
+);
 
 /* learn */
 let hideAns = false, onlyFlag = false;
@@ -842,6 +907,721 @@ document.addEventListener("keydown", e => {
 $("restart").onclick = () => startQuiz();
 $("order").onchange = () => startQuiz();
 
+/* =========================================================
+   THI THỬ
+   ========================================================= */
+
+const TEST_COUNT = 20;
+const TEST_TIME = 20 * 60;
+
+let test = null;
+let testTimer = null;
+
+
+/* ---------------------------------------------------------
+   Random mảng
+   --------------------------------------------------------- */
+
+function testShuffle(arr){
+
+  const a = arr.slice();
+
+  for (
+    let i = a.length - 1;
+    i > 0;
+    i--
+  ){
+
+    const j =
+      Math.floor(
+        Math.random() * (i + 1)
+      );
+
+    [a[i], a[j]] =
+      [a[j], a[i]];
+  }
+
+  return a;
+}
+
+
+/* ---------------------------------------------------------
+   Màn hình bắt đầu
+   --------------------------------------------------------- */
+
+function showTestStartScreen(){
+
+  stopTestTimer();
+
+  test = null;
+
+  $("test-start-screen").hidden = false;
+
+  $("test-content").hidden = true;
+}
+
+
+/* ---------------------------------------------------------
+   BẮT ĐẦU THI
+   --------------------------------------------------------- */
+
+function startTest(){
+
+  stopTestTimer();
+
+
+  /*
+   * Lấy toàn bộ index câu hỏi
+   * của học phần hiện tại
+   */
+
+  const indexes =
+    Q.map((x, i) => i);
+
+
+  /*
+   * Random câu hỏi
+   */
+
+  const list =
+    testShuffle(indexes)
+      .slice(
+        0,
+        Math.min(
+          TEST_COUNT,
+          indexes.length
+        )
+      );
+
+
+  /*
+   * Tạo bài thi
+   */
+
+  test = {
+
+    list: list,
+
+    pos: 0,
+
+    answers: {},
+
+    answered: 0,
+
+    correct: 0,
+
+    finished: false,
+
+    /*
+     * Thời gian chỉ bắt đầu
+     * từ lúc nhấn "Bắt đầu thi"
+     */
+
+    endTime:
+      Date.now() +
+      TEST_TIME * 1000,
+
+    perm: []
+
+  };
+
+
+  /*
+   * Chuyển màn hình
+   */
+
+  $("test-start-screen").hidden = true;
+
+  $("test-content").hidden = false;
+
+
+  /*
+   * Hiển thị câu đầu tiên
+   */
+
+  renderTest();
+
+
+  /*
+   * Bắt đầu đồng hồ
+   */
+
+  startTestTimer();
+
+}
+
+
+/* ---------------------------------------------------------
+   Format thời gian
+   --------------------------------------------------------- */
+
+function testTimeString(seconds){
+
+  seconds =
+    Math.max(
+      0,
+      Math.ceil(seconds)
+    );
+
+  const min =
+    Math.floor(
+      seconds / 60
+    );
+
+  const sec =
+    seconds % 60;
+
+  return (
+    String(min).padStart(2,"0")
+    + ":" +
+    String(sec).padStart(2,"0")
+  );
+
+}
+
+
+/* ---------------------------------------------------------
+   Đồng hồ
+   --------------------------------------------------------- */
+
+function startTestTimer(){
+
+  stopTestTimer();
+
+  testTimer =
+    setInterval(() => {
+
+      if (
+        !test ||
+        test.finished
+      ){
+
+        stopTestTimer();
+
+        return;
+
+      }
+
+
+      const remaining =
+        test.endTime -
+        Date.now();
+
+
+      if (remaining <= 0){
+
+        finishTest(true);
+
+        return;
+
+      }
+
+
+      updateTestTimer();
+
+    }, 250);
+
+
+  updateTestTimer();
+
+}
+
+
+/* ---------------------------------------------------------
+   Cập nhật đồng hồ
+   --------------------------------------------------------- */
+
+function updateTestTimer(){
+
+  if (!test) return;
+
+
+  const timer =
+    $("test-timer");
+
+
+  if (!timer) return;
+
+
+  const remaining =
+    Math.max(
+      0,
+      test.endTime -
+      Date.now()
+    );
+
+
+  timer.textContent =
+    "Thời gian: " +
+    testTimeString(
+      remaining / 1000
+    );
+
+
+  if (
+    remaining <=
+    5 * 60 * 1000
+  ){
+
+    timer.style.color =
+      "var(--bad)";
+
+  } else {
+
+    timer.style.color =
+      "var(--ink)";
+
+  }
+
+}
+
+
+/* ---------------------------------------------------------
+   Dừng đồng hồ
+   --------------------------------------------------------- */
+
+function stopTestTimer(){
+
+  if (testTimer !== null){
+
+    clearInterval(
+      testTimer
+    );
+
+    testTimer = null;
+
+  }
+
+}
+
+
+/* ---------------------------------------------------------
+   Thống kê
+   --------------------------------------------------------- */
+
+function renderTestStats(){
+
+  const total =
+    test.list.length;
+
+
+  $("test-stats").innerHTML = `
+
+    <span>
+      Câu
+      <strong>
+        ${test.pos + 1}
+      </strong>
+      /${total}
+    </span>
+
+    <span>
+      Đã làm
+      <strong>
+        ${test.answered}
+      </strong>
+    </span>
+
+    <span id="test-timer">
+      Thời gian:
+      ${testTimeString(
+        (test.endTime -
+        Date.now()) / 1000
+      )}
+    </span>
+
+  `;
+
+}
+
+
+/* ---------------------------------------------------------
+   Hiển thị câu hỏi
+   --------------------------------------------------------- */
+
+function renderTest(){
+
+  if (!test) return;
+
+
+  renderTestStats();
+
+
+  const qi =
+    test.list[
+      test.pos
+    ];
+
+
+  const x =
+    Q[qi];
+
+
+  /*
+   * Random vị trí đáp án
+   */
+
+  test.perm =
+    testShuffle([
+      0,1,2,3
+    ]);
+
+
+  const selected =
+    test.answers[qi];
+
+
+  $("test-qbox").innerHTML = `
+
+    <div class="card">
+
+      <div class="num">
+        CÂU ${test.pos + 1}
+        TRONG ĐỀ
+      </div>
+
+      <div class="q">
+        ${esc(x.q)}
+      </div>
+
+      <div class="opts">
+
+        ${test.perm.map(
+          (oi, k) => `
+
+          <button
+            class="opt ${
+              selected === oi
+                ? "ok"
+                : ""
+            }"
+            data-o="${oi}"
+          >
+
+            <b>${L[k]}</b>
+
+            <span>
+              ${esc(x.o[oi])}
+            </span>
+
+          </button>
+
+        `
+        ).join("")}
+
+      </div>
+
+
+      <div
+        class="row"
+        style="
+          margin-top:14px;
+          justify-content:space-between
+        "
+      >
+
+        <button
+          class="ghost"
+          id="test-prev"
+          ${
+            test.pos === 0
+              ? "disabled"
+              : ""
+          }
+        >
+          ← Câu trước
+        </button>
+
+
+        <button
+          class="next"
+          id="test-next"
+          style="
+            width:auto;
+            padding:10px 18px
+          "
+        >
+
+          ${
+            test.pos ===
+            test.list.length - 1
+              ? "Nộp bài"
+              : "Câu tiếp →"
+          }
+
+        </button>
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  /*
+   * Progress
+   */
+
+  $("test-prog").style.width =
+    (
+      (test.pos + 1) /
+      test.list.length *
+      100
+    ) + "%";
+
+
+  /*
+   * Chọn đáp án
+   */
+
+  $("test-qbox")
+    .querySelectorAll(".opt")
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        selectTestAnswer(
+          Number(
+            button.dataset.o
+          )
+        );
+
+      };
+
+    });
+
+
+  /*
+   * Câu trước
+   */
+
+  $("test-prev").onclick =
+    () => {
+
+      if (test.pos > 0){
+
+        test.pos--;
+
+        renderTest();
+
+      }
+
+    };
+
+
+  /*
+   * Câu tiếp
+   */
+
+  $("test-next").onclick =
+    () => {
+
+      if (
+        test.pos ===
+        test.list.length - 1
+      ){
+
+        finishTest(false);
+
+      } else {
+
+        test.pos++;
+
+        renderTest();
+
+      }
+
+    };
+
+
+  updateTestTimer();
+
+}
+
+
+/* ---------------------------------------------------------
+   Chọn đáp án
+   --------------------------------------------------------- */
+
+function selectTestAnswer(oi){
+
+  if (
+    !test ||
+    test.finished
+  ) return;
+
+
+  const qi =
+    test.list[
+      test.pos
+    ];
+
+
+  if (
+    test.answers[qi] ===
+    undefined
+  ){
+
+    test.answered++;
+
+  }
+
+
+  test.answers[qi] =
+    oi;
+
+
+  renderTest();
+
+}
+
+
+/* ---------------------------------------------------------
+   Kết thúc bài thi
+   --------------------------------------------------------- */
+
+function finishTest(timeUp){
+
+  if (
+    !test ||
+    test.finished
+  ) return;
+
+
+  test.finished = true;
+
+  stopTestTimer();
+
+
+  let correct = 0;
+
+
+  test.list.forEach(qi => {
+
+    if (
+      test.answers[qi] !==
+      undefined &&
+      test.answers[qi] ===
+      Q[qi].a
+    ){
+
+      correct++;
+
+    }
+
+  });
+
+
+  test.correct =
+    correct;
+
+
+  renderTestResult(
+    timeUp
+  );
+
+}
+
+
+/* ---------------------------------------------------------
+   Kết quả
+   --------------------------------------------------------- */
+
+function renderTestResult(timeUp){
+
+  const total =
+    test.list.length;
+
+
+  const percent =
+    Math.round(
+      test.correct /
+      total *
+      100
+    );
+
+
+  const unanswered =
+    total -
+    test.answered;
+
+
+  $("test-prog").style.width =
+    "100%";
+
+
+  $("test-stats").innerHTML = `
+
+    <span>
+      Điểm
+      <strong>
+        ${test.correct}/${total}
+      </strong>
+    </span>
+
+    <span>
+      Đúng
+      <strong>
+        ${percent}%
+      </strong>
+    </span>
+
+  `;
+
+
+  $("test-qbox").innerHTML = `
+
+    <div class="card done">
+
+      <div class="big">
+        ${test.correct}/${total}
+      </div>
+
+      <p>
+        Đúng ${percent}%.
+      </p>
+
+      ${
+        unanswered
+          ? `
+            <p>
+              Chưa trả lời:
+              ${unanswered} câu.
+            </p>
+          `
+          : ""
+      }
+
+
+      ${
+        timeUp
+          ? `
+            <p class="verdict no">
+              Hết giờ!
+              Bài thi đã được tự động nộp.
+            </p>
+          `
+          : ""
+      }
+
+
+      <button
+        class="next"
+        id="test-again"
+      >
+        Làm đề mới
+      </button>
+
+    </div>
+
+  `;
+
+
+  $("test-again").onclick =
+    showTestStartScreen;
+
+}
+
 /* wrong */
 function renderWrong(){
   const idx = [...wrong].sort((a,b)=>a-b);
@@ -854,8 +1634,13 @@ $("wpractice").onclick = () => { show("quiz"); startQuiz([...wrong]); };
 $("wclear").onclick = () => { wrong.clear(); saveWrong(); renderWrong(); };
 
 $("set").onchange = () => { loadSet($("set").value); renderLearn(); const tab = store.get("gdqp_tab","learn"); if (tab === "quiz") startQuiz(); if (tab === "wrong") renderWrong(); };
+$("test-start").onclick = startTest;
 loadSet(cur); renderLearn();
-const t = store.get("gdqp_tab", "learn"); if (t !== "learn") show(t);
+const t = store.get("gdqp_tab", "learn");
+
+if (t !== "learn") {
+  show(t);
+}
 
 /* =========================================================
    THI THỬ - 20 CÂU / 20 PHÚT
