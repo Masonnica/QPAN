@@ -693,137 +693,444 @@ const SETS = {
 ["\"Bản thân nhà giáo dục cũng cần phải được giáo dục\" là câu nói của ai?", ["Lev Tolstoy", "Karl Marx", "Albert Einstein", "Hồ Chí Minh"], 1]
 ]}
 };
-for (const k in SETS) SETS[k].q = SETS[k].q.map(r=>({q:r[0],o:r[1],a:r[2],n:r[3]}));
-const L = "ABCD";
-const $ = id => document.getElementById(id);
+/* =====================================================
+   Ôn GDQP-AN — script (dán ngay sau khối const SETS = {...};)
+   Tabs: Học nhanh · Luyện tập · Câu sai · Thi thử
+   ===================================================== */
+
+/* ---------- Tiện ích ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const LET = "ABCDEFGH";
+const EXAM_N = 20;            // số câu mỗi đề thi thử
+const EXAM_SEC = 20 * 60;     // 20 phút
+const K = { set: "gdqp_set", wrong: "gdqp_wrong", hist: "gdqp_exam_hist", cur: "gdqp_exam_cur" };
+
 const store = {
-  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
-  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
 };
-let cur = store.get("gdqp_set", "hp11"); if (!SETS[cur]) cur = "hp11";
-let Q, wrong;
-const saveWrong = () => { store.set("gdqp_wrong_" + cur, [...wrong]); $("wcnt").textContent = wrong.size ? " " + wrong.size : ""; };
-function loadSet(k){
-  cur = k; store.set("gdqp_set", k); $("set").value = k;
-  Q = SETS[k].q; wrong = new Set(store.get("gdqp_wrong_" + k, []));
-  $("total").textContent = Q.length + " câu";
-  const hasFlag = Q.some(x => x.n); $("c-flag").hidden = !hasFlag;
-  if (!hasFlag && onlyFlag){ onlyFlag = false; $("c-flag").setAttribute("aria-pressed", false); }
-  $("search").value = ""; quiz = null; saveWrong();
-}
-const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const norm = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").toLowerCase();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fold = s => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+const shuffle = a => {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+const pad = n => String(n).padStart(2, "0");
+const fmt = s => pad(Math.floor(s / 60)) + ":" + pad(s % 60);
 
-/* tabs */
-const views = {learn:"v-learn", quiz:"v-quiz", wrong:"v-wrong"};
-function show(v){
-  for (const k in views){ $(views[k]).hidden = k !== v; $("t-"+k).setAttribute("aria-selected", k===v); }
-  store.set("gdqp_tab", v);
-  if (v === "wrong") renderWrong();
-  if (v === "quiz" && !quiz) startQuiz();
-  window.scrollTo(0,0);
-}
-["learn","quiz","wrong"].forEach(k => $("t-"+k).onclick = () => show(k));
+/* ---------- Truy cập dữ liệu câu hỏi ---------- */
+const QS = key => (SETS[key] && SETS[key].q) || [];
+const getQ = id => {
+  const p = String(id).split(":");
+  const q = QS(p[0])[+p[1]];
+  if (!q || !Array.isArray(q[1])) return null;
+  return { id: id, key: p[0], i: +p[1], text: q[0], opts: q[1], ans: q[2], note: q[3] || "" };
+};
 
-/* learn */
-let hideAns = false, onlyFlag = false;
-function itemHTML(x, i){
-  return `<article class="item"><div class="num">CÂU ${i+1}</div>
-    <div class="q">${esc(x.q)}</div>
-    <div class="ans" data-i="${i}"><b>${L[x.a]}.</b><span>${esc(x.o[x.a])}</span></div>
-    ${x.n ? `<div class="flag">Cần kiểm tra lại: ${esc(x.n)}</div>` : ""}</article>`;
-}
-function renderLearn(){
-  const term = norm($("search").value.trim());
-  const idx = Q.map((x,i)=>i).filter(i => (!onlyFlag || Q[i].n) &&
-    (!term || norm(Q[i].q + " " + Q[i].o.join(" ")).includes(term)));
-  $("lmeta").textContent = idx.length === Q.length ? `Hiển thị toàn bộ ${Q.length} câu` : `${idx.length} / ${Q.length} câu`;
-  $("llist").className = "list" + (hideAns ? " hide" : "");
-  $("llist").innerHTML = idx.length ? idx.map(i => itemHTML(Q[i], i)).join("") : `<div class="empty">Không có câu nào khớp “${esc($("search").value)}”.</div>`;
-}
-$("llist").addEventListener("click", e => { const a = e.target.closest(".ans"); if (a) a.classList.toggle("shown"); });
-$("search").oninput = renderLearn;
-$("c-hide").onclick = () => { hideAns = !hideAns; $("c-hide").setAttribute("aria-pressed", hideAns); renderLearn(); };
-$("c-flag").onclick = () => { onlyFlag = !onlyFlag; $("c-flag").setAttribute("aria-pressed", onlyFlag); renderLearn(); };
+/* ---------- Trạng thái ---------- */
+let cur = store.get(K.set, "hp11");
+if (!SETS[cur]) cur = "hp11";
+let tab = "learn";
+let wrong = new Set(store.get(K.wrong, []).filter(id => getQ(id)));
+let qz = { pool: [], pos: 0, ok: 0, bad: 0, locked: false, wrongMode: false };
+let timer = null;
+let examResult = null;
+let exam = (() => {
+  const e = store.get(K.cur, null);
+  if (!e || !Array.isArray(e.ids) || !e.ids.length || !e.ids.every(id => getQ(id))) {
+    store.del(K.cur);
+    return null;
+  }
+  return e;
+})();
 
-/* quiz */
-let quiz = null;
-const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
-function startQuiz(subset){
-  const base = subset || Q.map((x,i)=>i);
-  const order = $("order").value === "shuffle" ? shuffle(base) : base;
-  quiz = { list: order, pos: 0, ok: 0, bad: 0, answered: false, subset: !!subset, perm: null };
-  renderQ();
+function saveWrong() {
+  store.set(K.wrong, [...wrong]);
+  $("#wcnt").textContent = wrong.size ? " " + wrong.size : "";
 }
-function renderStats(){
-  const done = quiz.ok + quiz.bad;
-  $("stats").innerHTML = `<span>Câu <strong>${Math.min(quiz.pos+1, quiz.list.length)}</strong>/${quiz.list.length}</span>
-    <span class="g">Đúng <strong>${quiz.ok}</strong></span><span class="r">Sai <strong>${quiz.bad}</strong></span>
-    ${quiz.subset ? "<span>· Đang ôn câu sai</span>" : ""}`;
-  $("prog").style.width = (done / quiz.list.length * 100) + "%";
+const saveExam = () => exam && store.set(K.cur, exam);
+
+/* ---------- Chuyển tab ---------- */
+const TABS = ["learn", "quiz", "wrong", "exam"];
+function show(t) {
+  tab = t;
+  TABS.forEach(x => {
+    $("#t-" + x).setAttribute("aria-selected", x === t ? "true" : "false");
+    $("#v-" + x).hidden = x !== t;
+  });
+  if (t === "learn") renderLearn();
+  if (t === "quiz") renderQuiz();
+  if (t === "wrong") renderWrong();
+  if (t === "exam") renderExam();
+  updateBar();
+  window.scrollTo(0, 0);
 }
-function renderQ(){
+TABS.forEach(t => { $("#t-" + t).onclick = () => show(t); });
+
+/* =====================================================
+   HỌC NHANH
+   ===================================================== */
+function renderLearn() {
+  const list = QS(cur);
+  const kw = fold($("#search").value.trim());
+  const flagOnly = $("#c-flag").getAttribute("aria-pressed") === "true";
+  const html = [];
+  list.forEach((q, i) => {
+    if (flagOnly && !q[3]) return;
+    if (kw && !fold(q[0] + " " + q[1].join(" ")).includes(kw)) return;
+    html.push(
+      `<div class="item"><div class="num">Câu ${i + 1}</div>` +
+      `<div class="q">${esc(q[0])}</div>` +
+      `<div class="ans" title="Bấm để hiện/ẩn đáp án"><b>${LET[q[2]]}.</b><span>${esc(q[1][q[2]])}</span></div>` +
+      (q[3] ? `<span class="flag">${esc(q[3])}</span>` : "") +
+      `</div>`
+    );
+  });
+  $("#llist").innerHTML = html.join("") || '<div class="empty">Không tìm thấy câu nào.</div>';
+  $("#lmeta").textContent = `${html.length} / ${list.length} câu`;
+}
+$("#search").addEventListener("input", renderLearn);
+$("#c-hide").onclick = e => {
+  const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+  e.currentTarget.setAttribute("aria-pressed", on);
+  $("#llist").classList.toggle("hide", on);
+};
+$("#c-flag").onclick = e => {
+  const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+  e.currentTarget.setAttribute("aria-pressed", on);
+  renderLearn();
+};
+$("#llist").addEventListener("click", e => {
+  const a = e.target.closest(".ans");
+  if (a) a.classList.toggle("shown");
+});
+
+/* =====================================================
+   LUYỆN TẬP
+   ===================================================== */
+function startQuiz(ids, wrongMode) {
+  const pool = ids && ids.length ? ids : QS(cur).map((_, i) => cur + ":" + i);
+  qz = {
+    pool: $("#order").value === "shuffle" ? shuffle(pool) : pool,
+    pos: 0, ok: 0, bad: 0, locked: false,
+    wrongMode: !!(ids && ids.length && wrongMode)
+  };
+  renderQuiz();
+}
+
+function renderStats() {
+  const n = qz.pool.length;
+  $("#stats").innerHTML =
+    `<span>Câu <strong>${Math.min(qz.pos + 1, n)}</strong>/${n}</span>` +
+    `<span class="g">Đúng <strong>${qz.ok}</strong></span>` +
+    `<span class="r">Sai <strong>${qz.bad}</strong></span>`;
+  const done = qz.pos + (qz.locked ? 1 : 0);
+  $("#prog").style.width = (n ? (done / n) * 100 : 0) + "%";
+}
+
+function renderQuiz() {
   renderStats();
-  if (quiz.pos >= quiz.list.length){
-    const pct = Math.round(quiz.ok / quiz.list.length * 100);
-    $("qbox").innerHTML = `<div class="card done"><div class="big">${quiz.ok}/${quiz.list.length}</div>
-      <p>Đúng ${pct}%. ${quiz.bad ? `Có ${quiz.bad} câu sai đã được lưu vào mục Câu sai.` : "Không sai câu nào."}</p>
-      <button class="next" id="again">Làm lượt mới</button>
-      ${wrong.size ? `<button class="ghost" id="gowrong" style="margin-top:8px;width:100%">Luyện lại ${wrong.size} câu sai</button>` : ""}</div>`;
-    $("again").onclick = () => startQuiz();
-    if ($("gowrong")) $("gowrong").onclick = () => startQuiz([...wrong]);
+  const n = qz.pool.length;
+  if (!n) { $("#qbox").innerHTML = '<div class="empty">Chưa có câu hỏi.</div>'; return; }
+  if (qz.pos >= n) {
+    const pct = Math.round((qz.ok / n) * 100);
+    $("#qbox").innerHTML =
+      `<div class="card done"><div class="big">${pct}%</div>` +
+      `<p>Đúng ${qz.ok}/${n} câu${qz.wrongMode ? " (luyện câu sai)" : ""}.</p>` +
+      `<button class="next" id="qagain">Làm lại</button></div>`;
+    $("#qagain").onclick = restartQuiz;
     return;
   }
-  const qi = quiz.list[quiz.pos], x = Q[qi];
-  quiz.perm = shuffle([0,1,2,3]); quiz.answered = false;
-  $("qbox").innerHTML = `<div class="card"><div class="num">CÂU ${qi+1} TRONG ĐỀ</div>
-    <div class="q">${esc(x.q)}</div>
-    <div class="opts">${quiz.perm.map((oi,k)=>`<button class="opt" data-o="${oi}"><b>${L[k]}</b><span>${esc(x.o[oi])}</span></button>`).join("")}</div>
-    <div id="fb"></div></div>
-    <p class="hint">Mẹo: bấm phím 1–4 hoặc A–D để chọn, Enter để sang câu tiếp.</p>`;
-  $("qbox").querySelectorAll(".opt").forEach(b => b.onclick = () => answer(+b.dataset.o));
+  const q = getQ(qz.pool[qz.pos]);
+  $("#qbox").innerHTML =
+    `<div class="card"><div class="num">${qz.wrongMode ? "Luyện câu sai · " : ""}${esc(SETS[q.key].name)} · Câu ${q.i + 1}</div>` +
+    `<div class="q">${esc(q.text)}</div>` +
+    `<div class="opts">${q.opts.map((o, k) =>
+      `<button class="opt" data-k="${k}"><b>${LET[k]}</b><span>${esc(o)}</span></button>`).join("")}</div>` +
+    `<div id="qfb"></div></div>`;
 }
-function answer(oi){
-  if (quiz.answered) return;
-  quiz.answered = true;
-  const qi = quiz.list[quiz.pos], x = Q[qi], right = oi === x.a;
-  $("qbox").querySelectorAll(".opt").forEach(b => {
-    const o = +b.dataset.o; b.disabled = true;
-    if (o === x.a) b.classList.add("ok"); else if (o === oi) b.classList.add("bad");
+
+function answerQuiz(k) {
+  if (qz.locked) return;
+  qz.locked = true;
+  const id = qz.pool[qz.pos];
+  const q = getQ(id);
+  const good = k === q.ans;
+  $$("#qbox .opt").forEach((b, j) => {
+    b.disabled = true;
+    if (j === q.ans) b.classList.add("ok");
+    else if (j === k) b.classList.add("bad");
   });
-  if (right){ quiz.ok++; if (quiz.subset) wrong.delete(qi); } else { quiz.bad++; wrong.add(qi); }
+  if (good) { qz.ok++; if (qz.wrongMode) wrong.delete(id); }
+  else { qz.bad++; wrong.add(id); }
   saveWrong();
-  const letter = L[quiz.perm.indexOf(x.a)];
-  $("fb").innerHTML = `<div class="verdict ${right ? "good" : "no"}">${right ? "Chính xác!" : `Sai rồi, đáp án đúng là ${letter}.`}</div>
-    ${x.n ? `<div class="flag">Cần kiểm tra lại: ${esc(x.n)}</div>` : ""}
-    <button class="next" id="nextq">${quiz.pos+1 < quiz.list.length ? "Câu tiếp →" : "Xem kết quả"}</button>`;
-  $("nextq").onclick = next; $("nextq").focus({preventScroll:true});
   renderStats();
+  const last = qz.pos + 1 >= qz.pool.length;
+  $("#qfb").innerHTML =
+    `<div class="verdict ${good ? "good" : "no"}">${good ? "✓ Chính xác!" : "✗ Chưa đúng. Đáp án: " + LET[q.ans] + ". " + esc(q.opts[q.ans])}</div>` +
+    (q.note ? `<span class="flag">${esc(q.note)}</span>` : "") +
+    `<button class="next" id="qnext">${last ? "Xem kết quả" : "Câu tiếp theo"}</button>`;
 }
-function next(){ quiz.pos++; renderQ(); $("qbox").scrollIntoView({block:"nearest"}); }
-document.addEventListener("keydown", e => {
-  if ($("v-quiz").hidden || !quiz || e.target.tagName === "INPUT") return;
-  const k = e.key.toUpperCase(); let n = "1234".indexOf(k); if (n < 0) n = L.indexOf(k);
-  if (n >= 0 && !quiz.answered && quiz.perm){ answer(quiz.perm[n]); }
-  else if (e.key === "Enter" && quiz.answered && document.activeElement?.id !== "nextq"){ next(); }
+
+function restartQuiz() {
+  if (qz.wrongMode && wrong.size) startQuiz([...wrong], true);
+  else startQuiz();
+}
+
+$("#qbox").addEventListener("click", e => {
+  const o = e.target.closest("button.opt");
+  if (o && !o.disabled) { answerQuiz(+o.dataset.k); return; }
+  if (e.target.closest("#qnext")) { qz.pos++; qz.locked = false; renderQuiz(); }
 });
-$("restart").onclick = () => startQuiz();
-$("order").onchange = () => startQuiz();
+$("#restart").onclick = restartQuiz;
+$("#order").onchange = restartQuiz;
 
-/* wrong */
-function renderWrong(){
-  const idx = [...wrong].sort((a,b)=>a-b);
-  $("wmeta").textContent = idx.length ? `${idx.length} câu bạn từng làm sai` : "";
-  $("wpractice").hidden = $("wclear").hidden = !idx.length;
-  $("wlist").innerHTML = idx.length ? idx.map(i => itemHTML(Q[i], i)).join("")
-    : `<div class="empty">Chưa có câu sai nào. Làm bài ở mục Luyện tập, câu nào sai sẽ tự lưu vào đây.</div>`;
+/* =====================================================
+   CÂU SAI
+   ===================================================== */
+function renderWrong() {
+  const ids = [...wrong];
+  $("#wmeta").textContent = ids.length ? `${ids.length} câu cần ôn lại` : "Chưa có câu sai nào.";
+  $("#wlist").innerHTML = ids.length
+    ? ids.map(id => {
+        const q = getQ(id);
+        return `<div class="item"><div class="num">${esc(SETS[q.key].name)} · Câu ${q.i + 1}</div>` +
+          `<div class="q">${esc(q.text)}</div>` +
+          `<div class="ans"><b>${LET[q.ans]}.</b><span>${esc(q.opts[q.ans])}</span></div></div>`;
+      }).join("")
+    : '<div class="empty">Câu trả lời sai ở tab Luyện tập hoặc Thi thử sẽ được lưu ở đây.</div>';
 }
-$("wpractice").onclick = () => { show("quiz"); startQuiz([...wrong]); };
-$("wclear").onclick = () => { wrong.clear(); saveWrong(); renderWrong(); };
+$("#wclear").onclick = () => {
+  if (!wrong.size) return;
+  if (!confirm("Xóa toàn bộ danh sách câu sai?")) return;
+  wrong.clear();
+  saveWrong();
+  renderWrong();
+};
+$("#wpractice").onclick = () => {
+  if (!wrong.size) return;
+  startQuiz([...wrong], true);
+  show("quiz");
+};
 
-$("set").onchange = () => { loadSet($("set").value); renderLearn(); const tab = store.get("gdqp_tab","learn"); if (tab === "quiz") startQuiz(); if (tab === "wrong") renderWrong(); };
-loadSet(cur); renderLearn();
-const t = store.get("gdqp_tab", "learn"); if (t !== "learn") show(t);
+/* =====================================================
+   THI THỬ — 20 câu ngẫu nhiên, đồng hồ đếm ngược 20 phút
+   ===================================================== */
+const hist = () => store.get(K.hist, []);
+const left = () => (exam ? Math.max(0, Math.ceil((exam.endAt - Date.now()) / 1000)) : 0);
+
+function updateBar() {
+  const on = tab === "exam" && !!exam;
+  $("#exbar").hidden = !on;
+  document.body.classList.toggle("exam-on", on);
+}
+
+function refreshExamCount() {
+  $("#ecnt").textContent = exam ? " " + fmt(left()) : examResult ? " " + examResult.score : "";
+}
+
+function startTimer() {
+  clearInterval(timer);
+  timer = setInterval(tick, 250);
+}
+
+function tick() {
+  if (!exam) { clearInterval(timer); refreshExamCount(); return; }
+  const s = left();
+  const c = $("#clock");
+  c.textContent = fmt(s);
+  c.classList.toggle("urgent", s <= 120);
+  refreshExamCount();
+  if (s <= 0) submitExam(true);
+}
+
+/* Gom câu hỏi, bỏ câu trùng hoàn toàn (cùng đề + cùng đáp án) */
+function examPool(src) {
+  const keys = src === "all" ? Object.keys(SETS) : [cur];
+  const seen = new Set();
+  const out = [];
+  keys.forEach(k => QS(k).forEach((q, i) => {
+    if (!Array.isArray(q[1])) return;
+    const sig = fold(q[0]) + "|" + q[1].map(fold).join("|");
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    out.push(k + ":" + i);
+  }));
+  return out;
+}
+
+function startExam() {
+  const src = $("#exsrc") ? $("#exsrc").value : "set";
+  const ids = shuffle(examPool(src)).slice(0, EXAM_N);
+  if (!ids.length) return;
+  exam = { ids: ids, ans: {}, i: 0, total: EXAM_SEC, endAt: Date.now() + EXAM_SEC * 1000 };
+  examResult = null;
+  saveExam();
+  renderExam();
+  startTimer();
+  tick();
+  updateBar();
+  window.scrollTo(0, 0);
+}
+
+function renderExam() {
+  if (exam && left() <= 0) { submitExam(true); return; }
+  if (examResult) return renderResult();
+  if (!exam) return renderExamHome();
+  renderExamRun();
+}
+
+function renderExamHome() {
+  const h = hist();
+  const last = h[h.length - 1];
+  const best = h.length ? Math.max(...h.map(r => r.score)) : 0;
+  $("#exbox").innerHTML =
+    `<div class="examwrap">` +
+    `<div class="ename">Thi thử GDQP-AN</div>` +
+    `<ul class="rules" style="margin-top:10px">` +
+    `<li>${EXAM_N} câu trắc nghiệm, chọn ngẫu nhiên mỗi lần thi.</li>` +
+    `<li>Thời gian ${EXAM_SEC / 60} phút, hết giờ hệ thống tự nộp bài.</li>` +
+    `<li>Đáp án chỉ hiện sau khi nộp bài. Câu sai được lưu vào tab “Câu sai”.</li>` +
+    `</ul>` +
+    `<div class="row" style="margin-bottom:6px"><select id="exsrc" aria-label="Nguồn đề">` +
+    `<option value="set">Học phần đang chọn: ${esc(SETS[cur].name)}</option>` +
+    `<option value="all">Trộn tất cả học phần</option></select></div>` +
+    `<button class="next" id="exstart">Bắt đầu thi</button>` +
+    (h.length
+      ? `<div class="pnote">Lần gần nhất: ${last.ok}/${last.n} câu (${last.score} điểm) · Cao nhất: ${best} điểm · Đã thi ${h.length} lần</div>`
+      : "") +
+    `</div>`;
+}
+
+function renderExamRun() {
+  const n = exam.ids.length;
+  const q = getQ(exam.ids[exam.i]);
+  const sel = exam.ans[exam.i];
+  const done = Object.keys(exam.ans).length;
+  $("#exmeta").textContent = `Đã làm ${done}/${n}`;
+  $("#clock").textContent = fmt(left());
+  $("#exbox").innerHTML =
+    `<div class="navgrid">${exam.ids.map((_, k) =>
+      `<button class="nv${exam.ans[k] !== undefined ? " on" : ""}" data-go="${k}"` +
+      `${k === exam.i ? ' style="outline:2px solid var(--ink);outline-offset:1px"' : ""}>${k + 1}</button>`).join("")}</div>` +
+    `<div class="card"><div class="num">Câu ${exam.i + 1}/${n}</div>` +
+    `<div class="q">${esc(q.text)}</div>` +
+    `<div class="opts">${q.opts.map((o, k) =>
+      `<button class="opt${sel === k ? " sel" : ""}" data-k="${k}"><b>${LET[k]}</b><span>${esc(o)}</span></button>`).join("")}</div>` +
+    `<div class="row" style="margin-top:14px;justify-content:space-between">` +
+    `<button class="ghost" data-nav="-1"${exam.i === 0 ? " disabled" : ""}>← Câu trước</button>` +
+    `<button class="ghost" data-nav="1"${exam.i === n - 1 ? " disabled" : ""}>Câu sau →</button></div></div>`;
+}
+
+function submitExam(auto) {
+  if (!exam) return;
+  const n = exam.ids.length;
+  const done = Object.keys(exam.ans).length;
+  if (!auto && done < n && !confirm(`Bạn còn ${n - done} câu chưa làm. Vẫn nộp bài?`)) return;
+
+  let ok = 0;
+  const rows = exam.ids.map((id, k) => {
+    const q = getQ(id);
+    const a = exam.ans[k];
+    const good = a === q.ans;
+    if (good) ok++; else wrong.add(id);
+    return { id: id, a: a, good: good };
+  });
+  const used = Math.min(exam.total, Math.round(exam.total - Math.max(0, (exam.endAt - Date.now()) / 1000)));
+  const score = Math.round((ok / n) * 100) / 10; // thang điểm 10
+
+  examResult = { rows: rows, ok: ok, n: n, used: used, score: score, auto: !!auto };
+  const h = hist();
+  h.push({ t: Date.now(), ok: ok, n: n, score: score, used: used });
+  store.set(K.hist, h.slice(-30));
+
+  exam = null;
+  store.del(K.cur);
+  clearInterval(timer);
+  saveWrong();
+  refreshExamCount();
+  renderExam();
+  updateBar();
+  window.scrollTo(0, 0);
+}
+
+function renderResult() {
+  const r = examResult;
+  const rows = r.rows.map((x, k) => {
+    const q = getQ(x.id);
+    const opts = q.opts.map((o, j) => {
+      const c = j === q.ans ? " ok" : j === x.a ? " bad" : "";
+      return `<div class="opt${c}" style="cursor:default"><b>${LET[j]}</b><span>${esc(o)}</span></div>`;
+    }).join("");
+    return `<div class="item"><div class="num" style="color:var(--${x.good ? "ok" : "bad"})">Câu ${k + 1} · ${x.good ? "✓ Đúng" : "✗ Sai"}</div>` +
+      `<div class="q">${esc(q.text)}</div><div class="opts">${opts}</div>` +
+      (x.a === undefined ? '<span class="flag">Chưa trả lời</span>' : "") +
+      (q.note ? `<span class="flag">${esc(q.note)}</span>` : "") +
+      `</div>`;
+  }).join("");
+  $("#exbox").innerHTML =
+    `<div class="card done"><div class="big">${r.score}</div>` +
+    `<div>điểm (thang 10) · đúng ${r.ok}/${r.n} câu</div>` +
+    `<div class="hint">Thời gian làm bài: ${fmt(r.used)}${r.auto ? " · hết giờ, hệ thống tự nộp bài" : ""}</div>` +
+    `<button class="next" id="exretry">Thi lại với đề mới</button></div>` +
+    `<div class="meta">Xem lại bài làm</div><div class="list">${rows}</div>`;
+}
+
+$("#exbox").addEventListener("click", e => {
+  const t = e.target;
+  if (t.closest("#exstart")) { startExam(); return; }
+  if (t.closest("#exretry")) { examResult = null; refreshExamCount(); renderExam(); window.scrollTo(0, 0); return; }
+  if (!exam) return;
+
+  const o = t.closest("button.opt");
+  if (o) {
+    const k = +o.dataset.k;
+    if (exam.ans[exam.i] === k) delete exam.ans[exam.i]; // bấm lại để bỏ chọn
+    else exam.ans[exam.i] = k;
+    saveExam();
+    renderExamRun();
+    return;
+  }
+  const g = t.closest("[data-go]");
+  if (g) { exam.i = +g.dataset.go; saveExam(); renderExamRun(); window.scrollTo(0, 0); return; }
+  const nv = t.closest("[data-nav]");
+  if (nv && !nv.disabled) {
+    exam.i = Math.max(0, Math.min(exam.ids.length - 1, exam.i + +nv.dataset.nav));
+    saveExam();
+    renderExamRun();
+    window.scrollTo(0, 0);
+  }
+});
+$("#exsubmit").onclick = () => submitExam(false);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && exam) tick(); });
+
+/* =====================================================
+   CHỌN HỌC PHẦN + KHỞI TẠO
+   ===================================================== */
+function updateTotal() { $("#total").textContent = QS(cur).length + " câu"; }
+
+$("#set").value = cur;
+$("#set").onchange = e => {
+  cur = e.target.value;
+  store.set(K.set, cur);
+  updateTotal();
+  renderLearn();
+  startQuiz();
+  if (tab === "exam" && !exam && !examResult) renderExamHome();
+};
+
+updateTotal();
+saveWrong();
+startQuiz();
+if (exam) startTimer();
+refreshExamCount();
+show(exam ? "exam" : "learn");
 </script>
 
 </body>
