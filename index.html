@@ -139,21 +139,34 @@ footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;
     </section>
     
     <section id="v-test" hidden>
-      <div class="row" style="justify-content:space-between">
-        <div class="stats" id="test-stats"></div>
+      <div id="test-start-screen" class="card">
+        <h2>Thi thử Quốc phòng và An ninh</h2>
     
-        <div class="row">
-          <button class="ghost" id="test-restart">
-            Làm lại
-          </button>
+        <p>
+          Bài thi gồm <strong>20 câu hỏi</strong>.
+          Thời gian làm bài: <strong>20 phút</strong>.
+        </p>
+    
+        <p>
+          Câu hỏi sẽ được chọn ngẫu nhiên từ học phần hiện tại.
+        </p>
+    
+        <button class="next" id="test-start">
+          Bắt đầu thi
+        </button>
+      </div>
+    
+      <div id="test-content" hidden>
+        <div class="row" style="justify-content:space-between">
+          <div class="stats" id="test-stats"></div>
         </div>
-      </div>
     
-      <div class="bar">
-        <i id="test-prog"></i>
-      </div>
+        <div class="bar">
+          <i id="test-prog"></i>
+        </div>
     
-      <div id="test-qbox"></div>
+        <div id="test-qbox"></div>
+      </div>
     </section>
   </main>
   <footer class="credit"><span>Biên soạn và phát triển bởi <b>Nhân Lập Trình</b></span><span>Ôn thi GDQP-AN · HP1, HP2 &amp; Luật Giáo dục</span></footer>
@@ -849,22 +862,24 @@ const t = store.get("gdqp_tab", "learn"); if (t !== "learn") show(t);
    ========================================================= */
 
 const TEST_QUESTION_COUNT = 20;
-const TEST_TIME_LIMIT = 20 * 60; // 20 phút, tính bằng giây
+const TEST_TIME_LIMIT = 20 * 60;
 
 let test = null;
 let testTimer = null;
 
 
 /* ---------------------------------------------------------
-   Hỗ trợ trộn mảng
+   Trộn mảng
    --------------------------------------------------------- */
+
 function shuffleArray(array) {
   const result = array.slice();
 
   for (let i = result.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
 
-    [result[i], result[j]] = [result[j], result[i]];
+    [result[i], result[j]] =
+      [result[j], result[i]];
   }
 
   return result;
@@ -872,42 +887,103 @@ function shuffleArray(array) {
 
 
 /* ---------------------------------------------------------
-   Bắt đầu một bài thi mới
+   Màn hình bắt đầu
    --------------------------------------------------------- */
-function startTest() {
-  // Dừng đồng hồ cũ nếu có
+
+function showTestStartScreen() {
+
   stopTestTimer();
 
-  // Lấy danh sách toàn bộ câu hỏi của học phần hiện tại
-  const allIndexes = Q.map((question, index) => index);
+  const startScreen =
+    document.getElementById("test-start-screen");
 
-  // Nếu số câu ít hơn 20 thì lấy toàn bộ
-  const questionCount = Math.min(
-    TEST_QUESTION_COUNT,
-    allIndexes.length
-  );
+  const content =
+    document.getElementById("test-content");
 
-  // Chọn ngẫu nhiên 20 câu
-  const selectedQuestions = shuffleArray(allIndexes)
-    .slice(0, questionCount);
+  if (startScreen) {
+    startScreen.hidden = false;
+  }
+
+  if (content) {
+    content.hidden = true;
+  }
+
+  test = null;
+}
+
+
+/* ---------------------------------------------------------
+   BẮT ĐẦU THI
+   --------------------------------------------------------- */
+
+function startTest() {
+
+  // Chỉ bắt đầu tính giờ từ lúc nhấn nút
+  stopTestTimer();
+
+  // Lấy toàn bộ câu hỏi của học phần hiện tại
+  const allIndexes =
+    Q.map((question, index) => index);
+
+  // Số câu thực tế
+  const questionCount =
+    Math.min(
+      TEST_QUESTION_COUNT,
+      allIndexes.length
+    );
+
+  // Random câu hỏi
+  const selectedQuestions =
+    shuffleArray(allIndexes)
+      .slice(0, questionCount);
 
   test = {
     list: selectedQuestions,
+
     pos: 0,
+
     answers: {},
+
     correct: 0,
+
     answered: 0,
+
     finished: false,
 
-    // Thời điểm kết thúc bài thi
-    endTime: Date.now() + TEST_TIME_LIMIT * 1000,
+    // QUAN TRỌNG:
+    // Chỉ tạo endTime tại thời điểm nhấn
+    // "Bắt đầu thi"
+    endTime:
+      Date.now() +
+      TEST_TIME_LIMIT * 1000,
 
-    // Lưu vị trí đáp án sau khi xáo trộn
-    perm: null
+    perm: []
   };
 
+  // Ẩn màn hình bắt đầu
+  const startScreen =
+    document.getElementById(
+      "test-start-screen"
+    );
+
+  // Hiện đề thi
+  const content =
+    document.getElementById(
+      "test-content"
+    );
+
+  if (startScreen) {
+    startScreen.hidden = true;
+  }
+
+  if (content) {
+    content.hidden = false;
+  }
+
+  // Hiển thị câu đầu tiên
   renderTest();
 
+  // Bắt đầu đếm giờ
   startTestTimer();
 }
 
@@ -915,11 +991,19 @@ function startTest() {
 /* ---------------------------------------------------------
    Định dạng thời gian
    --------------------------------------------------------- */
-function formatTestTime(seconds) {
-  seconds = Math.max(0, seconds);
 
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+function formatTestTime(seconds) {
+
+  seconds = Math.max(
+    0,
+    seconds
+  );
+
+  const minutes =
+    Math.floor(seconds / 60);
+
+  const secs =
+    seconds % 60;
 
   return (
     String(minutes).padStart(2, "0") +
@@ -932,94 +1016,136 @@ function formatTestTime(seconds) {
 /* ---------------------------------------------------------
    Hiển thị đồng hồ
    --------------------------------------------------------- */
+
 function renderTestTimer() {
-  const timer = document.getElementById("test-timer");
+
+  const timer =
+    document.getElementById(
+      "test-timer"
+    );
 
   if (!timer || !test) return;
 
-  const remaining = Math.max(
-    0,
-    Math.ceil((test.endTime - Date.now()) / 1000)
-  );
+  const remaining =
+    Math.max(
+      0,
+      Math.ceil(
+        (test.endTime - Date.now()) / 1000
+      )
+    );
 
-  timer.textContent = "Thời gian: " + formatTestTime(remaining);
+  timer.textContent =
+    "Thời gian: " +
+    formatTestTime(remaining);
 
-  // Cảnh báo khi còn 5 phút
   if (remaining <= 5 * 60) {
-    timer.style.color = "var(--bad)";
+    timer.style.color =
+      "var(--bad)";
   } else {
-    timer.style.color = "var(--ink)";
+    timer.style.color =
+      "var(--ink)";
   }
 }
 
 
 /* ---------------------------------------------------------
-   Chạy đồng hồ
+   Bắt đầu đồng hồ
    --------------------------------------------------------- */
+
 function startTestTimer() {
+
   stopTestTimer();
 
   renderTestTimer();
 
-  testTimer = setInterval(() => {
-    if (!test || test.finished) {
-      stopTestTimer();
-      return;
-    }
+  testTimer =
+    setInterval(() => {
 
-    const remaining = test.endTime - Date.now();
+      if (!test || test.finished) {
+        stopTestTimer();
+        return;
+      }
 
-    if (remaining <= 0) {
+      const remaining =
+        test.endTime - Date.now();
+
+      if (remaining <= 0) {
+
+        renderTestTimer();
+
+        // Tự động nộp bài
+        finishTest(true);
+
+        return;
+      }
+
       renderTestTimer();
-      finishTest(true);
-      return;
-    }
 
-    renderTestTimer();
-  }, 250);
+    }, 250);
 }
 
 
 /* ---------------------------------------------------------
    Dừng đồng hồ
    --------------------------------------------------------- */
+
 function stopTestTimer() {
+
   if (testTimer !== null) {
+
     clearInterval(testTimer);
+
     testTimer = null;
   }
 }
 
 
 /* ---------------------------------------------------------
-   Hiển thị thông tin bài thi
+   Hiển thị thống kê
    --------------------------------------------------------- */
+
 function renderTestStats() {
+
   if (!test) return;
 
-  const answered = test.answered;
-  const total = test.list.length;
-
-  const stats = document.getElementById("test-stats");
+  const stats =
+    document.getElementById(
+      "test-stats"
+    );
 
   if (!stats) return;
+
+  const total =
+    test.list.length;
 
   stats.innerHTML = `
     <span>
       Câu
-      <strong>${Math.min(test.pos + 1, total)}</strong>/${total}
+      <strong>
+        ${Math.min(
+          test.pos + 1,
+          total
+        )}
+      </strong>
+      /${total}
     </span>
 
     <span>
       Đã làm
-      <strong>${answered}</strong>
+      <strong>
+        ${test.answered}
+      </strong>
     </span>
 
     <span id="test-timer">
-      Thời gian: ${formatTestTime(
+      Thời gian:
+      ${formatTestTime(
         Math.max(
           0,
-          Math.ceil((test.endTime - Date.now()) / 1000)
+          Math.ceil(
+            (test.endTime -
+              Date.now()) / 1000
+          )
         )
       )}
     </span>
@@ -1028,33 +1154,54 @@ function renderTestStats() {
 
 
 /* ---------------------------------------------------------
-   Hiển thị câu hỏi hiện tại
+   Hiển thị câu hỏi
    --------------------------------------------------------- */
+
 function renderTest() {
+
   if (!test) return;
 
   renderTestStats();
 
-  const qbox = document.getElementById("test-qbox");
-  const progress = document.getElementById("test-prog");
+  const qbox =
+    document.getElementById(
+      "test-qbox"
+    );
+
+  const progress =
+    document.getElementById(
+      "test-prog"
+    );
 
   if (!qbox) return;
 
-  // Đã hết câu
   if (test.pos >= test.list.length) {
+
     finishTest(false);
+
     return;
   }
 
-  const questionIndex = test.list[test.pos];
-  const question = Q[questionIndex];
+  const questionIndex =
+    test.list[test.pos];
 
-  // Xáo trộn đáp án
-  test.perm = shuffleArray([0, 1, 2, 3]);
+  const question =
+    Q[questionIndex];
 
-  const selectedAnswer = test.answers[questionIndex];
+  // Random thứ tự đáp án
+  test.perm =
+    shuffleArray([
+      0,
+      1,
+      2,
+      3
+    ]);
+
+  const selectedAnswer =
+    test.answers[questionIndex];
 
   qbox.innerHTML = `
+
     <div class="card">
 
       <div class="num">
@@ -1067,27 +1214,43 @@ function renderTest() {
 
       <div class="opts">
 
-        ${test.perm.map((optionIndex, displayIndex) => {
+        ${test.perm.map(
+          (optionIndex, displayIndex) => {
 
-          const isSelected =
-            selectedAnswer === optionIndex;
+            const selected =
+              selectedAnswer ===
+              optionIndex;
 
-          return `
-            <button
-              class="opt ${isSelected ? "ok" : ""}"
-              data-option="${optionIndex}"
-            >
-              <b>${L[displayIndex]}</b>
+            return `
 
-              <span>
-                ${esc(question.o[optionIndex])}
-              </span>
-            </button>
-          `;
+              <button
+                class="opt ${
+                  selected ? "ok" : ""
+                }"
+                data-option="${optionIndex}"
+              >
 
-        }).join("")}
+                <b>
+                  ${L[displayIndex]}
+                </b>
+
+                <span>
+                  ${esc(
+                    question.o[
+                      optionIndex
+                    ]
+                  )}
+                </span>
+
+              </button>
+
+            `;
+
+          }
+        ).join("")}
 
       </div>
+
 
       <div
         class="row"
@@ -1100,18 +1263,27 @@ function renderTest() {
         <button
           class="ghost"
           id="test-prev"
-          ${test.pos === 0 ? "disabled" : ""}
+          ${
+            test.pos === 0
+              ? "disabled"
+              : ""
+          }
         >
           ← Câu trước
         </button>
 
+
         <button
           class="next"
           id="test-next"
-          style="width:auto;padding:10px 18px"
+          style="
+            width:auto;
+            padding:10px 18px
+          "
         >
           ${
-            test.pos === test.list.length - 1
+            test.pos ===
+            test.list.length - 1
               ? "Nộp bài"
               : "Câu tiếp →"
           }
@@ -1120,59 +1292,100 @@ function renderTest() {
       </div>
 
     </div>
+
   `;
 
+
   // Progress bar
+
   if (progress) {
+
     progress.style.width =
-      ((test.pos + 1) / test.list.length * 100) + "%";
+      (
+        (test.pos + 1) /
+        test.list.length *
+        100
+      ) + "%";
+
   }
+
 
   // Chọn đáp án
-  qbox.querySelectorAll(".opt").forEach(button => {
 
-    button.onclick = () => {
+  qbox
+    .querySelectorAll(".opt")
+    .forEach(button => {
 
-      const optionIndex =
-        Number(button.dataset.option);
+      button.onclick = () => {
 
-      selectTestAnswer(optionIndex);
+        const optionIndex =
+          Number(
+            button.dataset.option
+          );
 
-    };
+        selectTestAnswer(
+          optionIndex
+        );
 
-  });
+      };
+
+    });
+
 
   // Câu trước
-  const prevButton =
-    document.getElementById("test-prev");
 
-  if (prevButton) {
-    prevButton.onclick = () => {
+  const prev =
+    document.getElementById(
+      "test-prev"
+    );
+
+  if (prev) {
+
+    prev.onclick = () => {
 
       if (test.pos > 0) {
+
         test.pos--;
+
         renderTest();
+
       }
 
     };
+
   }
+
 
   // Câu tiếp / nộp bài
-  const nextButton =
-    document.getElementById("test-next");
 
-  if (nextButton) {
-    nextButton.onclick = () => {
+  const next =
+    document.getElementById(
+      "test-next"
+    );
 
-      if (test.pos === test.list.length - 1) {
+  if (next) {
+
+    next.onclick = () => {
+
+      if (
+        test.pos ===
+        test.list.length - 1
+      ) {
+
         finishTest(false);
+
       } else {
+
         test.pos++;
+
         renderTest();
+
       }
 
     };
+
   }
+
 
   renderTestTimer();
 }
@@ -1181,22 +1394,35 @@ function renderTest() {
 /* ---------------------------------------------------------
    Chọn đáp án
    --------------------------------------------------------- */
-function selectTestAnswer(optionIndex) {
 
-  if (!test || test.finished) return;
+function selectTestAnswer(
+  optionIndex
+) {
+
+  if (
+    !test ||
+    test.finished
+  ) {
+    return;
+  }
 
   const questionIndex =
     test.list[test.pos];
 
-  // Nếu chưa trả lời câu này
-  if (test.answers[questionIndex] === undefined) {
+  if (
+    test.answers[
+      questionIndex
+    ] === undefined
+  ) {
+
     test.answered++;
+
   }
 
-  // Lưu đáp án
-  test.answers[questionIndex] = optionIndex;
+  test.answers[
+    questionIndex
+  ] = optionIndex;
 
-  // Render lại để đánh dấu đáp án đã chọn
   renderTest();
 }
 
@@ -1204,9 +1430,17 @@ function selectTestAnswer(optionIndex) {
 /* ---------------------------------------------------------
    Nộp bài
    --------------------------------------------------------- */
-function finishTest(timeUp = false) {
 
-  if (!test || test.finished) return;
+function finishTest(
+  timeUp = false
+) {
+
+  if (
+    !test ||
+    test.finished
+  ) {
+    return;
+  }
 
   test.finished = true;
 
@@ -1214,21 +1448,28 @@ function finishTest(timeUp = false) {
 
   let correct = 0;
 
-  test.list.forEach(questionIndex => {
+  test.list.forEach(
+    questionIndex => {
 
-    const question = Q[questionIndex];
+      const question =
+        Q[questionIndex];
 
-    const selected =
-      test.answers[questionIndex];
+      const selected =
+        test.answers[
+          questionIndex
+        ];
 
-    if (
-      selected !== undefined &&
-      selected === question.a
-    ) {
-      correct++;
+      if (
+        selected !== undefined &&
+        selected === question.a
+      ) {
+
+        correct++;
+
+      }
+
     }
-
-  });
+  );
 
   test.correct = correct;
 
@@ -1239,27 +1480,45 @@ function finishTest(timeUp = false) {
 /* ---------------------------------------------------------
    Hiển thị kết quả
    --------------------------------------------------------- */
-function renderTestResult(timeUp) {
+
+function renderTestResult(
+  timeUp
+) {
 
   const qbox =
-    document.getElementById("test-qbox");
+    document.getElementById(
+      "test-qbox"
+    );
 
   const progress =
-    document.getElementById("test-prog");
+    document.getElementById(
+      "test-prog"
+    );
 
   if (!qbox || !test) return;
 
-  const total = test.list.length;
-  const unanswered = total - test.answered;
+  const total =
+    test.list.length;
+
+  const unanswered =
+    total - test.answered;
 
   const percent =
-    Math.round(test.correct / total * 100);
+    Math.round(
+      test.correct /
+      total *
+      100
+    );
 
   if (progress) {
-    progress.style.width = "100%";
+
+    progress.style.width =
+      "100%";
+
   }
 
   qbox.innerHTML = `
+
     <div class="card done">
 
       <div class="big">
@@ -1267,22 +1526,31 @@ function renderTestResult(timeUp) {
       </div>
 
       <p>
-        Kết quả: <strong>${percent}%</strong>
+        Kết quả:
+        <strong>
+          ${percent}%
+        </strong>
       </p>
 
       ${
         timeUp
-          ? `<p class="verdict no">
-               Hết giờ! Bài thi đã được tự động nộp.
-             </p>`
+          ? `
+            <p class="verdict no">
+              Hết giờ!
+              Bài thi đã được tự động nộp.
+            </p>
+          `
           : ""
       }
 
       ${
         unanswered > 0
-          ? `<p>
-               Bạn chưa trả lời ${unanswered} câu.
-             </p>`
+          ? `
+            <p>
+              Bạn chưa trả lời
+              ${unanswered} câu.
+            </p>
+          `
           : ""
       }
 
@@ -1294,169 +1562,92 @@ function renderTestResult(timeUp) {
       </button>
 
     </div>
+
   `;
 
+
   const stats =
-    document.getElementById("test-stats");
+    document.getElementById(
+      "test-stats"
+    );
 
   if (stats) {
+
     stats.innerHTML = `
+
       <span>
         Điểm
-        <strong>${test.correct}/${total}</strong>
+        <strong>
+          ${test.correct}/${total}
+        </strong>
       </span>
 
       <span>
         Đúng
-        <strong>${percent}%</strong>
+        <strong>
+          ${percent}%
+        </strong>
       </span>
+
     `;
+
   }
 
+
   const again =
-    document.getElementById("test-again");
+    document.getElementById(
+      "test-again"
+    );
 
   if (again) {
-    again.onclick = startTest;
+
+    again.onclick = () => {
+
+      showTestStartScreen();
+
+    };
+
   }
 }
 
 
 /* =========================================================
-   THAY THẾ HỆ THỐNG TAB CŨ
+   TAB THI THỬ
    ========================================================= */
 
-const originalViews = {
-  learn: "v-learn",
-  quiz: "v-quiz",
-  wrong: "v-wrong",
-  test: "v-test"
-};
+const testTab =
+  document.getElementById("t-test");
 
+if (testTab) {
 
-/* ---------------------------------------------------------
-   Hiển thị tab
-   --------------------------------------------------------- */
-function showTab(tab) {
+  testTab.onclick = () => {
 
-  for (const key in originalViews) {
+    // Chỉ hiện màn hình bắt đầu
+    // Không tự động bắt đầu thi
+    showTestStartScreen();
 
-    const view =
-      document.getElementById(originalViews[key]);
+  };
 
-    const button =
-      document.getElementById("t-" + key);
-
-    if (view) {
-      view.hidden = key !== tab;
-    }
-
-    if (button) {
-      button.setAttribute(
-        "aria-selected",
-        key === tab
-      );
-    }
-  }
-
-  store.set("gdqp_tab", tab);
-
-  // Tab Câu sai
-  if (tab === "wrong") {
-    renderWrong();
-  }
-
-  // Tab Luyện tập
-  if (tab === "quiz" && !quiz) {
-    startQuiz();
-  }
-
-  // Tab Thi thử
-  if (tab === "test") {
-
-    // Nếu chưa có bài hoặc bài trước đã kết thúc
-    if (!test || test.finished) {
-      startTest();
-    } else {
-      renderTest();
-    }
-  }
-
-  window.scrollTo(0, 0);
 }
 
 
-/* ---------------------------------------------------------
-   Gắn sự kiện cho các tab
-   --------------------------------------------------------- */
-["learn", "quiz", "wrong", "test"].forEach(tab => {
+/* =========================================================
+   NÚT "BẮT ĐẦU THI"
+   ========================================================= */
 
-  const button =
-    document.getElementById("t-" + tab);
+const testStart =
+  document.getElementById(
+    "test-start"
+  );
 
-  if (button) {
-    button.onclick = () => showTab(tab);
-  }
+if (testStart) {
 
-});
+  testStart.onclick = () => {
 
+    startTest();
 
-/* ---------------------------------------------------------
-   Hỗ trợ phím 1-4 / A-D trong Thi thử
-   --------------------------------------------------------- */
-document.addEventListener("keydown", e => {
+  };
 
-  // Không xử lý nếu không ở tab Thi thử
-  const testView =
-    document.getElementById("v-test");
-
-  if (!testView || testView.hidden) return;
-
-  if (!test || test.finished) return;
-
-  // Không xử lý khi đang nhập vào input
-  if (
-    e.target.tagName === "INPUT" ||
-    e.target.tagName === "TEXTAREA" ||
-    e.target.tagName === "SELECT"
-  ) {
-    return;
-  }
-
-  const key =
-    e.key.toUpperCase();
-
-  let index =
-    "1234".indexOf(key);
-
-  if (index < 0) {
-    index = L.indexOf(key);
-  }
-
-  if (index >= 0 && test.perm) {
-
-    selectTestAnswer(
-      test.perm[index]
-    );
-
-  }
-
-});
-
-
-/* ---------------------------------------------------------
-   Khởi động
-   --------------------------------------------------------- */
-
-// Không cần sửa SETS / Q.
-// Nếu người dùng đang mở tab Thi thử từ localStorage
-// thì mở lại bài thi mới.
-
-const savedTab =
-  store.get("gdqp_tab", "learn");
-
-if (savedTab === "test") {
-  showTab("test");
 }
 </script>
 
