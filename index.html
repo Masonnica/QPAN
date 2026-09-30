@@ -96,6 +96,7 @@ footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;
       <button role="tab" id="t-learn" aria-selected="true">Học nhanh</button>
       <button role="tab" id="t-quiz" aria-selected="false">Luyện tập</button>
       <button role="tab" id="t-wrong" aria-selected="false">Câu sai<span class="cnt" id="wcnt"></span></button>
+      <button role="tab" id="t-test" aria-selected="false">Thi thử</button>
     </div>
   </header>
   <main>
@@ -135,6 +136,17 @@ footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;
         </div>
       </div>
       <div class="list" id="wlist"></div>
+    </section>
+    
+    <section id="v-test" hidden>
+      <div class="row" style="justify-content:space-between">
+        <div class="stats" id="stats"></div>
+        <div class="row">
+          <button class="ghost" id="restart">Làm lại</button>
+        </div>
+      </div>
+      <div class="bar"><i id="prog"></i></div>
+      <div id="qbox"></div>
     </section>
   </main>
   <footer class="credit"><span>Biên soạn và phát triển bởi <b>Nhân Lập Trình</b></span><span>Ôn thi GDQP-AN · HP1, HP2 &amp; Luật Giáo dục</span></footer>
