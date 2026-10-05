@@ -83,6 +83,14 @@ select{font:inherit;font-size:.88rem;padding:8px;border-radius:8px;border:1px so
 .hint{color:var(--muted);font-size:.8rem;margin-top:10px}
 footer.credit{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:.82rem;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.review{margin-top:18px}
+.review h2{font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;margin:0}
+.rv{display:flex;gap:8px;align-items:flex-start;border-radius:7px;padding:8px 10px;margin-top:6px}
+.rv b{font-family:var(--display);font-weight:600;white-space:nowrap}
+.rv.bad{background:var(--bad-bg)} .rv.bad b{color:var(--bad)}
+.rv.none{background:var(--warn-bg)} .rv.none b{color:var(--warn)}
+.rv.good{background:var(--ok-bg)} .rv.good b{color:var(--ok)}
+.perfect{margin-top:14px;font-weight:600;color:var(--ok);text-align:center}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -1259,6 +1267,37 @@ function renderTestResult(timeUp) {
     progress.style.width = "100%";
   }
 
+  // Danh sách câu sai (gồm cả câu chưa trả lời), theo thứ tự trong đề
+  const wrongItems = [];
+
+  test.list.forEach((questionIndex, order) => {
+    const question = Q[questionIndex];
+    const selected = test.answers[questionIndex];
+
+    if (selected === question.a) return;
+
+    wrongItems.push(`
+      <article class="item">
+        <div class="num">CÂU ${order + 1}/${total}</div>
+        <div class="q">${esc(question.q)}</div>
+        ${
+          selected === undefined
+            ? `<div class="rv none"><b>Chưa trả lời</b></div>`
+            : `<div class="rv bad"><b>Bạn chọn:</b><span>${esc(question.o[selected])}</span></div>`
+        }
+        <div class="rv good"><b>Đáp án đúng:</b><span>${esc(question.o[question.a])}</span></div>
+        ${question.n ? `<div class="flag">Cần kiểm tra lại: ${esc(question.n)}</div>` : ""}
+      </article>
+    `);
+  });
+
+  const reviewHTML = wrongItems.length
+    ? `<section class="review">
+         <h2>Các câu sai (${wrongItems.length})</h2>
+         <div class="list">${wrongItems.join("")}</div>
+       </section>`
+    : `<p class="perfect">Tuyệt vời, bạn làm đúng toàn bộ!</p>`;
+
   qbox.innerHTML = `
     <div class="card done">
 
@@ -1294,6 +1333,8 @@ function renderTestResult(timeUp) {
       </button>
 
     </div>
+
+    ${reviewHTML}
   `;
 
   const stats =
@@ -1319,6 +1360,14 @@ function renderTestResult(timeUp) {
   if (again) {
     again.onclick = startTest;
   }
+
+  window.scrollTo(0, 0);
+}
+
+const testRestartButton = document.getElementById("test-restart");
+
+if (testRestartButton) {
+  testRestartButton.onclick = startTest;
 }
 
 
