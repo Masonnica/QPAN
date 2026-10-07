@@ -862,13 +862,15 @@ $("wclear").onclick = () => { wrong.clear(); saveWrong(); renderWrong(); };
 $("set").onchange = () => { loadSet($("set").value); renderLearn(); const tab = store.get("gdqp_tab","learn"); if (tab === "quiz") startQuiz(); if (tab === "wrong") renderWrong(); };
 
 /* ===== thi thử ===== */
-const EXAMS = { e1: {name:"Học phần 1", sets:["hp11","hp12"]}, e2: {name:"Học phần 2", sets:["hp2","luat"]} };
-const EX_N = 20, EX_SEC = 45;           // mỗi lượt tối đa 20 câu, 45 giây/câu (20 câu = 15 phút)
+const EXAMS = {
+  e1: {name:"Học phần 1", sets:["hp11","hp12"], n:20, sec:45},   // 20 câu, 45 giây/câu = 15 phút
+  e2: {name:"Học phần 2", sets:["hp2","luat"], n:45, sec:40}    // 45 câu, 40 giây/câu = 30 phút
+};
 let ex = store.get("gdqp_exam", null), exPick = null, exTimer = null;
 
 const qOf = it => SETS[it.s].q[it.i];
 const idOf = it => it.s + ":" + it.i;
-const durText = n => { const s = n * EX_SEC, m = Math.floor(s/60), r = s%60; return r ? `${m} phút ${r} giây` : `${m} phút`; };
+const durText = (n, k) => { const s = n * EXAMS[k].sec, m = Math.floor(s/60), r = s%60; return r ? `${m} phút ${r} giây` : `${m} phút`; };
 const mmss = ms => { const s = Math.max(0, Math.round(ms/1000)); return String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0"); };
 const examPool = key => { const out = []; EXAMS[key].sets.forEach(s => SETS[s].q.forEach((_,i) => out.push({s,i}))); return out; };
 const saveEx = () => store.set("gdqp_exam", ex);
@@ -908,9 +910,9 @@ function tick(){
 }
 
 function examStart(key){
-  const take = shuffle(remainOf(key)).slice(0, EX_N);
+  const take = shuffle(remainOf(key)).slice(0, EXAMS[key].n);
   if (!take.length){ exPick = null; renderExam(); return; }
-  const ms = take.length * EX_SEC * 1000;
+  const ms = take.length * EXAMS[key].sec * 1000;
   ex = { key, items: take, perms: take.map(()=>shuffle([0,1,2,3])), ans: take.map(()=>null),
          start: Date.now(), endAt: Date.now() + ms, limit: ms, done:false };
   saveEx(); exPick = null;
@@ -961,7 +963,7 @@ function progressHTML(k){
   const total = examPool(k).length, left = remainOf(k).length, done = total - left;
   const pct = Math.round(done / total * 100);
   const st = store.get("gdqp_exstat_" + k, null);
-  const rounds = left ? Math.ceil(left / EX_N) : 0;
+  const rounds = left ? Math.ceil(left / EXAMS[k].n) : 0;
   return `<div class="prog">
     <div class="prow"><span>Đã thuộc <strong>${done}</strong>/${total}</span><span>${pct}%</span></div>
     <div class="bar"><i style="width:${pct}%"></i></div>
@@ -972,16 +974,16 @@ function progressHTML(k){
 function renderMenu(){
   const card = k => {
     const total = examPool(k).length, left = remainOf(k).length;
-    const n = Math.min(EX_N, left);
+    const n = Math.min(EXAMS[k].n, left);
     return `<section class="examwrap">
       <div class="ename">Thi thử ${esc(EXAMS[k].name)}</div>
       ${progressHTML(k)}
-      ${left ? `<button class="next" data-e="${k}">Vào thi · ${n} câu · ${durText(n)}</button>`
+      ${left ? `<button class="next" data-e="${k}">Vào thi · ${n} câu · ${durText(n, k)}</button>`
              : `<div class="doneflag">Bạn đã trả lời đúng toàn bộ ${total} câu của đề này. Bấm “Học lại từ đầu” để bắt đầu vòng mới.</div>`}
       <button class="ghost" data-r="${k}" style="width:100%;margin-top:8px">Học lại từ đầu (reset tiến độ)</button>
     </section>`;
   };
-  $("exbox").innerHTML = `<div class="meta">Mỗi lượt bốc ngẫu nhiên tối đa ${EX_N} câu <b>chưa thuộc</b>. Câu trả lời đúng được đánh dấu đã thuộc và không bốc lại; câu sai vẫn nằm trong kho để gặp lại ở lượt sau. Tiến độ được lưu, tải lại trang không mất.</div>
+  $("exbox").innerHTML = `<div class="meta">Mỗi lượt bốc ngẫu nhiên tối đa ${EXAMS.e1.n} câu (Học phần 1) hoặc ${EXAMS.e2.n} câu (Học phần 2) <b>chưa thuộc</b>. Câu trả lời đúng được đánh dấu đã thuộc và không bốc lại; câu sai vẫn nằm trong kho để gặp lại ở lượt sau. Tiến độ được lưu, tải lại trang không mất.</div>
     ${card("e1")}${card("e2")}`;
   $("exbox").querySelectorAll("[data-e]").forEach(b => b.onclick = () => { exPick = b.dataset.e; renderExam(); });
   $("exbox").querySelectorAll("[data-r]").forEach(b => b.onclick = () => {
@@ -992,13 +994,13 @@ function renderMenu(){
   });
 }
 function renderConfirm(){
-  const left = remainOf(exPick).length, n = Math.min(EX_N, left);
+  const left = remainOf(exPick).length, n = Math.min(EXAMS[exPick].n, left);
   $("exbox").innerHTML = `<div class="card">
     <div class="num">XÁC NHẬN THI</div>
     <div class="q">Thi thử ${esc(EXAMS[exPick].name)}</div>
     <ul class="rules">
       <li><b>${n} câu</b> bốc ngẫu nhiên trong ${left} câu bạn chưa thuộc, thứ tự phương án cũng được đảo.</li>
-      <li>Thời gian <b>${durText(n)}</b> (45 giây mỗi câu), đồng hồ chạy ngay khi bấm xác nhận.</li>
+      <li>Thời gian <b>${durText(n, exPick)}</b> (${EXAMS[exPick].sec} giây mỗi câu), đồng hồ chạy ngay khi bấm xác nhận.</li>
       <li>Trong lúc thi không hiện đúng/sai — bấm <b>Nộp bài</b> mới chấm.</li>
       <li>Hết giờ mà chưa nộp thì hệ thống tự nộp và chấm phần đã làm.</li>
       <li>Câu đúng được ghi nhận <b>đã thuộc</b>; câu sai hoặc bỏ trống sẽ quay lại kho và vào mục <b>Câu sai</b>.</li>
@@ -1051,7 +1053,7 @@ function renderResult(){
     <p>Đúng ${pct}% · thang điểm 10: <strong>${d10}</strong><br>
     Thời gian làm: ${mmss(ex.used)}${ex.auto ? " · hết giờ, hệ thống tự nộp" : ""}${blank ? ` · bỏ trống ${blank} câu` : ""}</p>
     ${progressHTML(ex.key)}
-    ${left ? `<button class="next" id="exnew">Thi lượt tiếp theo · ${Math.min(EX_N,left)} câu</button>`
+    ${left ? `<button class="next" id="exnew">Thi lượt tiếp theo · ${Math.min(EXAMS[ex.key].n,left)} câu</button>`
            : `<div class="doneflag">Xong vòng! Bạn đã trả lời đúng toàn bộ câu hỏi của đề này.</div>`}
     <button class="ghost" id="exmenu" style="width:100%;margin-top:8px">Về màn hình chọn đề</button></div>
     <div class="meta">Xem lại bài làm</div>${review}`;
