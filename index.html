@@ -37,7 +37,7 @@ header.top{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:14
 h1{font-family:var(--display);font-weight:600;font-size:1.35rem;letter-spacing:.02em;margin:0;text-transform:uppercase}
 .sub{color:var(--muted);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
 .tabs{display:flex;gap:6px;margin-top:10px;background:var(--khaki);padding:4px;border-radius:10px}
-.tabs button{flex:1;border:0;background:transparent;color:var(--ink);font:600 .92rem var(--body);padding:9px 6px;border-radius:7px;cursor:pointer}
+.tabs button{flex:1;border:0;background:transparent;color:var(--ink);font:600 .85rem var(--body);padding:9px 3px;border-radius:7px;cursor:pointer;white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
 .tabs .cnt{font-family:var(--display);font-weight:500;margin-left:4px}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -83,14 +83,31 @@ select{font:inherit;font-size:.88rem;padding:8px;border-radius:8px;border:1px so
 .hint{color:var(--muted);font-size:.8rem;margin-top:10px}
 footer.credit{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:.82rem;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
-.review{margin-top:18px}
-.review h2{font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;margin:0}
-.rv{display:flex;gap:8px;align-items:flex-start;border-radius:7px;padding:8px 10px;margin-top:6px}
-.rv b{font-family:var(--display);font-weight:600;white-space:nowrap}
-.rv.bad{background:var(--bad-bg)} .rv.bad b{color:var(--bad)}
-.rv.none{background:var(--warn-bg)} .rv.none b{color:var(--warn)}
-.rv.good{background:var(--ok-bg)} .rv.good b{color:var(--ok)}
-.perfect{margin-top:14px;font-weight:600;color:var(--ok);text-align:center}
+/* thi thử */
+.examwrap{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:12px}
+.prog{margin:8px 0 14px}
+.prow{display:flex;justify-content:space-between;font-size:.9rem;color:var(--muted);margin-bottom:6px}
+.prow strong{font-family:var(--display);font-size:1.15rem;color:var(--accent)}
+.pnote{color:var(--muted);font-size:.82rem;margin-top:6px}
+.doneflag{background:var(--ok-bg);color:var(--ink);border-radius:8px;padding:12px;font-size:.9rem}
+.examcard{display:flex;flex-direction:column;gap:3px;text-align:left;width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;font:inherit;color:var(--ink)}
+.examcard:hover{border-color:var(--accent)}
+.ename{font-family:var(--display);font-weight:600;font-size:1.12rem;letter-spacing:.02em;text-transform:uppercase}
+.edesc{color:var(--muted);font-size:.85rem}
+.elast{color:var(--accent);font-size:.82rem;font-weight:600;margin-top:4px}
+.rules{margin:0 0 14px;padding-left:18px;color:var(--muted);font-size:.9rem}
+.rules li{margin-bottom:5px}
+.navgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-bottom:4px}
+.nv{border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 .8rem var(--body);padding:6px 0;border-radius:6px;cursor:pointer}
+.nv.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.opt.sel{border-color:var(--accent);background:var(--khaki)}
+.exambar{position:fixed;left:0;right:0;bottom:0;z-index:9;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.exinner{max-width:680px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.clock{font-family:var(--display);font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent);line-height:1}
+.clock.urgent{color:var(--bad)}
+.exmeta{color:var(--muted);font-size:.85rem;flex:1}
+.submit{border:0;background:var(--accent);color:var(--accent-ink);font:600 .95rem var(--body);padding:11px 18px;border-radius:9px;cursor:pointer}
+body.exam-on{padding-block-end:104px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -99,12 +116,12 @@ footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;
 <div class="wrap">
   <header class="top">
     <div class="brand"><div><div class="byline">Nhân Lập Trình</div><h1>Ôn GDQP-AN</h1></div>
-      <div class="row"><select id="set" aria-label="Chọn học phần"><option value="hp11">Học phần 1.1</option><option value="hp12">Học phần 1.2</option><option value="hp2">Học phần 2</option><option value="luat">Luật Giáo dục</option></select><span class="sub" id="total"></span></div></div>
+      <div class="row"><select id="set" aria-label="Chọn học phần"><option value="hp11">Học phần 1.1</option><option value="hp12">Học phần 1.2</option><option value="hp2">Học phần 2</option><option value="luat">Luật Giáo dục</option><option value="so1">★ Đáp án số HP1</option><option value="so2">★ Đáp án số HP2</option></select><span class="sub" id="total"></span></div></div>
     <div class="tabs" role="tablist">
       <button role="tab" id="t-learn" aria-selected="true">Học nhanh</button>
       <button role="tab" id="t-quiz" aria-selected="false">Luyện tập</button>
       <button role="tab" id="t-wrong" aria-selected="false">Câu sai<span class="cnt" id="wcnt"></span></button>
-      <button role="tab" id="t-test" aria-selected="false">Thi thử</button>
+      <button role="tab" id="t-exam" aria-selected="false">Thi thử<span class="cnt" id="ecnt"></span></button>
     </div>
   </header>
   <main>
@@ -145,26 +162,19 @@ footer.credit b{font-family:var(--display);font-weight:600;letter-spacing:.08em;
       </div>
       <div class="list" id="wlist"></div>
     </section>
-    
-    <section id="v-test" hidden>
-      <div class="row" style="justify-content:space-between">
-        <div class="stats" id="test-stats"></div>
-    
-        <div class="row">
-          <button class="ghost" id="test-restart">
-            Làm lại
-          </button>
-        </div>
-      </div>
-    
-      <div class="bar">
-        <i id="test-prog"></i>
-      </div>
-    
-      <div id="test-qbox"></div>
+
+    <section id="v-exam" hidden>
+      <div id="exbox"></div>
     </section>
   </main>
   <footer class="credit"><span>Biên soạn và phát triển bởi <b>Nhân Lập Trình</b></span><span>Ôn thi GDQP-AN · HP1, HP2 &amp; Luật Giáo dục</span></footer>
+</div>
+<div class="exambar" id="exbar" hidden>
+  <div class="exinner">
+    <span class="clock" id="clock">15:00</span>
+    <span class="exmeta" id="exmeta"></span>
+    <button class="submit" id="exsubmit">Nộp bài</button>
+  </div>
 </div>
 
 <script>
